@@ -8,7 +8,7 @@
     tools:context=".MainActivity">
 
     <Button
-        android:id="@+id/button"
+        android:id="@+id/wipeB"
         android:layout_width="284dp"
         android:layout_height="101dp"
         android:layout_marginStart="8dp"
@@ -26,4 +26,5 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_bias="0.903" />
+
 </android.support.constraint.ConstraintLayout>

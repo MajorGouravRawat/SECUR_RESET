@@ -16,6 +16,22 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+
+        <!-- Device Administrator receiver manifest information, don't modify -->
+        <receiver
+            android:name=".appDeviceAdminReceiver"
+            android:permission="android.permission.BIND_DEVICE_ADMIN" >
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/device_admin" />
+
+        </receiver>
+
     </application>
 
 </manifest>
