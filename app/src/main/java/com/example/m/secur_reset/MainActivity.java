@@ -1,6 +1,7 @@
 package com.example.m.secur_reset;
 
 import android.app.AlertDialog;
+import android.app.admin.DeviceAdminInfo;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
@@ -13,12 +14,11 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
-import android.content.SharedPreferences;
+import android.widget.TextView;
 import java.io.FileOutputStream;
-
 import java.io.File;
 import java.util.Random;
-
+import java.util.Arrays;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -36,13 +36,6 @@ public class MainActivity extends AppCompatActivity {
         devicePolicyManager = (DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE);
         appDeviceAdmin = new ComponentName(this, appDeviceAdminReceiver.class);
 
-        // Set device admin bool to false
-        // SharedPreferences allow us to change this value when the user enables this outside of the app
-        SharedPreferences devAdminP = this.getPreferences(Context.MODE_PRIVATE);
-        SharedPreferences.Editor editor = devAdminP.edit();
-        editor.putBoolean("ADMIN_ENABLED", false);
-        editor.apply();
-
         // Assign the wipe button to a variable
         Button wipeB;
         wipeB = findViewById(R.id.wipeB);
@@ -54,30 +47,31 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
 
-                // BEGIN BUTTON_CLICKED BLOCK
-                // TODO: Add features within this block for more comprehensive wiping
+
+                boolean isAdmin = devicePolicyManager.isAdminActive(appDeviceAdmin);
+                if (isAdmin) {
+                    // BEGIN BUTTON_CLICKED BLOCK
+                    // TODO: Add features within this block for more comprehensive wiping
 
 
-                // Take the user to settings to have them enable the app as a device admin
-                alertAdmin();
-                // TODO: check if the app is actually a device admin before attempting to wipe
+                    // Move to in-progress activity
+                    setContentView(R.layout.activity_inprogress);
 
 
-                // Move to in-progress activity
-                setContentView(R.layout.activity_inprogress);
+                    // Start junk writer
+                    //writeJunk();
 
 
-                // Start junk writer
-                writeJunk();
+                    // Start full device wipe
+                    devicePolicyManager = (DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE);
+                    devicePolicyManager.wipeData(1);
 
-
-                // Start full device wipe
-                devicePolicyManager.wipeData(0);
-
-                // END BUTTON_CLICKED BLOCK
-
-                // TODO: Error codes from
-
+                    // END BUTTON_CLICKED BLOCK
+                }
+                else {
+                    // Take the user to settings to have them enable the app as a device admin
+                    alertAdmin();
+                }
             }
         });
     }
@@ -89,57 +83,60 @@ public class MainActivity extends AppCompatActivity {
 
         // Get free space amount
         long freeSpace = getFreeSpace();
-        freeSpace /= 1024;
 
-        // TODO: show our progress on the wiping screen out of available MB
         // long availMB = (freeSpace / 1048576); // 1024^2 to get free space in MB
 
         // Open new file with rand 24 char name, write 1000b of data to make 1kb file
         // Repeat for the number of freespace we have (represented as kb)
-        for(long i = 0; i < freeSpace; i += 1000) {
-            String filename = getRandName();
-            new File(getBaseContext().getFilesDir(), filename);
 
-            // Write 1kb of data to the file (int is 4 bytes)
-            // Build array of 250 rand ints to write to the file in bulk
-            int[] randA = new int[250];
-            for (int a = 0; a < 250; a++) {
+
+        // Start new file
+        String filename = getRandName();
+        new File(getBaseContext().getFilesDir(), filename);
+        try {
+            // Open the file output stream to write to file
+            FileOutputStream outputStream;
+            outputStream = openFileOutput(filename, Context.MODE_PRIVATE);
+
+            for(long i = 0; i < freeSpace; i += 1) {
+                // Display amount of data written on the screen
+                TextView amountWritten = findViewById(R.id.amountWritten);
+                String updateTextView = "Written: " + i + "/" + freeSpace + " bytes";
+                amountWritten.setText(updateTextView);
+
+                // Write 1b of data to the file (int is 4 bytes)
+                // Build array of 250 rand ints to write to the file in bulk
+                byte randB;
                 int temp = new Random().nextInt(Integer.MAX_VALUE);
-                randA[a] = temp;
+                randB = (byte)temp;
+                outputStream.write(randB);
             }
-            try {
-                // Open the file output stream to write to file
-                FileOutputStream outputStream;
-                outputStream = openFileOutput(filename, Context.MODE_PRIVATE);
 
-                // loop through the array and write each entry to the file
-                for (int w = 0; w < 250; w++) {
-                    outputStream.write(randA[w]);
-                }
-
-                // Close the stream
-                outputStream.close();
-            }
-            catch (Exception e) {
-                break;
-            }
+            // Close the stream
+            outputStream.close();
         }
+        catch (Exception e) {
+            System.out.println("Something went wrong when writing to the file");
+        }
+
+
+
     }
 
     // Generates a random filename
     public String getRandName() {
         // Init necessary vars
-        String filename = "";
-        String tempAccChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+        String tempAccChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
         char[] accChars = tempAccChars.toCharArray();
         int accMax = tempAccChars.length();
+        char[] filename = new char[24];
 
         // Append 24 random chars to the filename
         for (int i = 0; i < 24; i++) {
             int rand = new Random().nextInt(accMax);
-            filename = filename + accChars[rand];
+            filename[i] = accChars[rand];
         }
-        return filename;
+        return Arrays.toString(filename);
     }
 
     // Method to alert user to allow this app to be a device admin
@@ -156,7 +153,14 @@ public class MainActivity extends AppCompatActivity {
                 // Prompt user to activate Device Admin for the app
                 Toast.makeText(getApplicationContext(), "Please enable this app as a Device Admin",
                         Toast.LENGTH_LONG).show();
-                startActivity(new Intent().setComponent(new ComponentName("com.android.settings", "com.android.settings.DeviceAdminSettings")));
+
+                //startActivity(new Intent().setComponent(new ComponentName("com.android.settings", "com.android.settings.DeviceAdminSettings")));
+
+                Intent intent = new Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN);
+                intent.putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, appDeviceAdmin);
+                intent.putExtra("Factory Reset", DeviceAdminInfo.USES_POLICY_WIPE_DATA);
+                intent.putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "This allows the app to factory reset the device after it has been wiped.");
+                startActivityForResult(intent, 0);
             }
         });
 
