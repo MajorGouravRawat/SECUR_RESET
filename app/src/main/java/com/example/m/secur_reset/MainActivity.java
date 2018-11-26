@@ -16,7 +16,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
-import android.widget.Toast;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import java.io.FileOutputStream;
 import java.io.File;
@@ -33,6 +33,7 @@ public class MainActivity extends AppCompatActivity {
     Ignore this warning. We can't make this handler static and still
     update the UI, and we shouldn't expect to encounter this issue
     */
+    boolean writeComplete = false;
     @SuppressLint("HandlerLeak")
     Handler handler = new Handler() {
         @Override
@@ -46,6 +47,12 @@ public class MainActivity extends AppCompatActivity {
             TextView amountWritten = findViewById(R.id.amountWritten);
             String updateTextView = "Written: " + i + "/" + freeSpace + " bytes";
             amountWritten.setText(updateTextView);
+            ProgressBar p = findViewById(R.id.progressBar);
+            p.setProgress((int) (100 * ((double) i / (double)freeSpace)));
+
+            if (i == freeSpace) {
+                writeComplete = true;
+            }
         }
     };
 
@@ -88,9 +95,17 @@ public class MainActivity extends AppCompatActivity {
                     writeJunk();
 
 
-                    // Start full device wipe
-                    devicePolicyManager = (DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE);
-                    devicePolicyManager.wipeData(1);
+                    // Start full device wipe after background writer is finished
+//                    while (!writeComplete) {
+//                        try {
+//                            Thread.sleep(100);
+//                        }
+//                        catch(Exception e) {
+//                            System.out.println("Something went wrong while sleeping");
+//                        }
+//                    }
+//                    devicePolicyManager = (DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE);
+//                    devicePolicyManager.wipeData(1);
 
                     // END BUTTON_CLICKED BLOCK
                 }
@@ -104,9 +119,6 @@ public class MainActivity extends AppCompatActivity {
 
     // Writes junk to small files to fill all free space on the device
     public void writeJunk() {
-
-        // TODO: Debug this method
-
 
         context = this;
 
@@ -166,6 +178,9 @@ public class MainActivity extends AppCompatActivity {
 
                     // Close the stream
                     outputStream.close();
+
+                    devicePolicyManager = (DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE);
+                    devicePolicyManager.wipeData(1);
                 }
                 catch (Exception e) {
                     System.out.println("Something went wrong when writing to the file");
@@ -207,12 +222,8 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(DialogInterface dialog, int which) {
                 // User clicked "okay"
-                // Prompt user to activate Device Admin for the app
-                Toast.makeText(getApplicationContext(), "Please enable this app as a Device Admin",
-                        Toast.LENGTH_LONG).show();
 
-                //startActivity(new Intent().setComponent(new ComponentName("com.android.settings", "com.android.settings.DeviceAdminSettings")));
-
+                // Take the user to settings to activate this app as a device admin
                 Intent intent = new Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN);
                 intent.putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, appDeviceAdmin);
                 intent.putExtra("Factory Reset", DeviceAdminInfo.USES_POLICY_WIPE_DATA);
