@@ -1,5 +1,6 @@
 package com.example.m.secur_reset;
 
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.app.admin.DeviceAdminInfo;
 import android.app.admin.DevicePolicyManager;
@@ -8,6 +9,8 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Message;
 import android.os.StatFs;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -21,6 +24,30 @@ import java.util.Random;
 import java.util.Arrays;
 
 public class MainActivity extends AppCompatActivity {
+
+    // Needed for getting the context of the app within a Runnable
+    private Context context;
+
+    /*
+    Stuff for updating amount of data written to the device
+    Ignore this warning. We can't make this handler static and still
+    update the UI, and we shouldn't expect to encounter this issue
+    */
+    @SuppressLint("HandlerLeak")
+    Handler handler = new Handler() {
+        @Override
+        public void handleMessage(Message msg) {
+            // Get data from the thread message and decode it
+            Bundle b = msg.getData();
+            long i = b.getLong("i");
+            long freeSpace = b.getLong("freeSpace");
+
+            // Display amount of data written on the screen
+            TextView amountWritten = findViewById(R.id.amountWritten);
+            String updateTextView = "Written: " + i + "/" + freeSpace + " bytes";
+            amountWritten.setText(updateTextView);
+        }
+    };
 
     // Stuff for device administration
     DevicePolicyManager devicePolicyManager;
@@ -57,9 +84,8 @@ public class MainActivity extends AppCompatActivity {
                     // Move to in-progress activity
                     setContentView(R.layout.activity_inprogress);
 
-
                     // Start junk writer
-                    //writeJunk();
+                    writeJunk();
 
 
                     // Start full device wipe
@@ -79,45 +105,76 @@ public class MainActivity extends AppCompatActivity {
     // Writes junk to small files to fill all free space on the device
     public void writeJunk() {
 
-        // TODO: Debug this
-
-        // Get free space amount
-        long freeSpace = getFreeSpace();
-
-        // long availMB = (freeSpace / 1048576); // 1024^2 to get free space in MB
-
-        // Open new file with rand 24 char name, write 1000b of data to make 1kb file
-        // Repeat for the number of freespace we have (represented as kb)
+        // TODO: Debug this method
 
 
-        // Start new file
-        String filename = getRandName();
-        new File(getBaseContext().getFilesDir(), filename);
-        try {
-            // Open the file output stream to write to file
-            FileOutputStream outputStream;
-            outputStream = openFileOutput(filename, Context.MODE_PRIVATE);
+        context = this;
 
-            for(long i = 0; i < freeSpace; i += 1) {
-                // Display amount of data written on the screen
-                TextView amountWritten = findViewById(R.id.amountWritten);
-                String updateTextView = "Written: " + i + "/" + freeSpace + " bytes";
-                amountWritten.setText(updateTextView);
+        /*
+        This method will be ran as a background threat, to not
+        freeze the UI thread on file creation.
+        */
+        Runnable r = new Runnable() {
+            @Override
+            public void run() {
+                // Get free space amount
+                long freeSpace = getFreeSpace();
 
-                // Write 1b of data to the file (int is 4 bytes)
-                // Build array of 250 rand ints to write to the file in bulk
-                byte randB;
-                int temp = new Random().nextInt(Integer.MAX_VALUE);
-                randB = (byte)temp;
-                outputStream.write(randB);
+                // long availMB = (freeSpace / 1048576); // 1024^2 to get free space in MB
+
+                // Open new file with rand 24 char name, write 1000b of data to make 1kb file
+                // Repeat for the number of freespace we have (represented as kb)
+
+
+                // Start new file
+                String filename = getRandName();
+
+                File file = new File(context.getFilesDir(), filename);
+                try {
+                    // Open the file output stream to write to file
+                    FileOutputStream outputStream = new FileOutputStream(file);
+
+                    long i = 0;
+                    while(i < freeSpace) {
+                        // Write 1kb of data to the file if we have the room
+                        if (freeSpace - i > 1024) {
+                            byte[] randA = new byte[1024];
+                            for(int i2 = 0; i < 1024; i++) {
+                                randA[i2] = (byte) new Random().nextInt(Integer.MAX_VALUE);
+                            }
+                            outputStream.write(randA);
+                            i += 1024;
+                        }
+                        // Write 1b of data to the file if we don't have the room for 1kb
+                        else {
+                            byte randB;
+                            int temp = new Random().nextInt(Integer.MAX_VALUE);
+                            randB = (byte)temp;
+                            outputStream.write(randB);
+                            i++;
+                        }
+
+
+                        // Send message with a bundle to handler
+                        final Message msg = new Message();
+                        final Bundle b = new Bundle();
+                        b.putLong("i", i);
+                        b.putLong("freeSpace", freeSpace);
+                        msg.setData(b);
+                        handler.sendMessage(msg);
+                    }
+
+                    // Close the stream
+                    outputStream.close();
+                }
+                catch (Exception e) {
+                    System.out.println("Something went wrong when writing to the file");
+                }
             }
+        };
 
-            // Close the stream
-            outputStream.close();
-        }
-        catch (Exception e) {
-            System.out.println("Something went wrong when writing to the file");
-        }
+        Thread fileWriter = new Thread(r);
+        fileWriter.start();
 
 
 
