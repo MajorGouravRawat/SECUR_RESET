@@ -20,8 +20,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import java.io.FileOutputStream;
 import java.io.File;
-import java.util.Random;
-import java.util.Arrays;
+import java.security.SecureRandom;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -29,7 +28,7 @@ public class MainActivity extends AppCompatActivity {
     private Context context;
 
     /*
-    Stuff for updating amount of data written to the device
+    Stuff for updating amount of data written to the device.
     Ignore this warning. We can't make this handler static and still
     update the UI, and we shouldn't expect to encounter this issue
     */
@@ -94,19 +93,6 @@ public class MainActivity extends AppCompatActivity {
                     // Start junk writer
                     writeJunk();
 
-
-                    // Start full device wipe after background writer is finished
-//                    while (!writeComplete) {
-//                        try {
-//                            Thread.sleep(100);
-//                        }
-//                        catch(Exception e) {
-//                            System.out.println("Something went wrong while sleeping");
-//                        }
-//                    }
-//                    devicePolicyManager = (DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE);
-//                    devicePolicyManager.wipeData(1);
-
                     // END BUTTON_CLICKED BLOCK
                 }
                 else {
@@ -145,23 +131,21 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     // Open the file output stream to write to file
                     FileOutputStream outputStream = new FileOutputStream(file);
+                    SecureRandom r = new SecureRandom();
 
                     long i = 0;
                     while(i < freeSpace) {
                         // Write 1kb of data to the file if we have the room
                         if (freeSpace - i > 1024) {
                             byte[] randA = new byte[1024];
-                            for(int i2 = 0; i < 1024; i++) {
-                                randA[i2] = (byte) new Random().nextInt(Integer.MAX_VALUE);
-                            }
+                            r.nextBytes(randA);
                             outputStream.write(randA);
                             i += 1024;
                         }
                         // Write 1b of data to the file if we don't have the room for 1kb
                         else {
-                            byte randB;
-                            int temp = new Random().nextInt(Integer.MAX_VALUE);
-                            randB = (byte)temp;
+                            byte[] randB = new byte[1];
+                            r.nextBytes(randB);
                             outputStream.write(randB);
                             i++;
                         }
@@ -182,8 +166,14 @@ public class MainActivity extends AppCompatActivity {
                     devicePolicyManager = (DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE);
                     devicePolicyManager.wipeData(1);
                 }
+
+                // Can happen if we end up with less space than we first calculated to write files
                 catch (Exception e) {
                     System.out.println("Something went wrong when writing to the file");
+
+                    // Realistically, we will have written junk to as much space as we can. Factory reset at this point.
+                    devicePolicyManager = (DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE);
+                    devicePolicyManager.wipeData(1);
                 }
             }
         };
@@ -201,14 +191,24 @@ public class MainActivity extends AppCompatActivity {
         String tempAccChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
         char[] accChars = tempAccChars.toCharArray();
         int accMax = tempAccChars.length();
-        char[] filename = new char[24];
-
-        // Append 24 random chars to the filename
+        StringBuilder nameBuilder = new StringBuilder();
         for (int i = 0; i < 24; i++) {
-            int rand = new Random().nextInt(accMax);
-            filename[i] = accChars[rand];
+            int rand = new SecureRandom().nextInt(accMax);
+            nameBuilder.append(accChars[rand]);
         }
-        return Arrays.toString(filename);
+        return nameBuilder.toString();
+
+
+//        char[] accChars = tempAccChars.toCharArray();
+//        int accMax = tempAccChars.length();
+//        char[] filename = new char[24];
+//
+//        // Append 24 random chars to the filename
+//        for (int i = 0; i < 24; i++) {
+//            int rand = new Random().nextInt(accMax);
+//            filename[i] = accChars[rand];
+//        }
+//        return Arrays.toString(filename);
     }
 
     // Method to alert user to allow this app to be a device admin
