@@ -178,6 +178,7 @@ public class MainActivity extends AppCompatActivity {
             }
         };
 
+        // Start the fileWriter thread
         Thread fileWriter = new Thread(r);
         fileWriter.start();
 
@@ -191,24 +192,14 @@ public class MainActivity extends AppCompatActivity {
         String tempAccChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
         char[] accChars = tempAccChars.toCharArray();
         int accMax = tempAccChars.length();
+
+        // Use a StringBuilder so that we don't have array garbage in our filename
         StringBuilder nameBuilder = new StringBuilder();
         for (int i = 0; i < 24; i++) {
             int rand = new SecureRandom().nextInt(accMax);
             nameBuilder.append(accChars[rand]);
         }
         return nameBuilder.toString();
-
-
-//        char[] accChars = tempAccChars.toCharArray();
-//        int accMax = tempAccChars.length();
-//        char[] filename = new char[24];
-//
-//        // Append 24 random chars to the filename
-//        for (int i = 0; i < 24; i++) {
-//            int rand = new Random().nextInt(accMax);
-//            filename[i] = accChars[rand];
-//        }
-//        return Arrays.toString(filename);
     }
 
     // Method to alert user to allow this app to be a device admin
@@ -238,7 +229,11 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    // Method to get free space on the device
+    /*
+    Method to get free space on the device
+    *NOTE* This amount can change while we write to the device, this is just to get a general
+    idea on how much we need to write
+    */
     public long getFreeSpace() {
         File spaceCheck = Environment.getDataDirectory();
         StatFs space = new StatFs(spaceCheck.getPath());
