@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">SECUR_RESET</string>
     <string name="wiping">Wiping...</string>
+    <string name="written">Calculating free space...</string>
 </resources>
